@@ -30,6 +30,7 @@ class FakeTensorProp(torch.fx.Interpreter):
         self._mode = mode
 
     def run_node(self, n: Node):
+        from torch.fx.experimental.symbolic_shapes import rename_unbacked_to
 
         result = super().run_node(n)
 
@@ -46,7 +47,7 @@ class FakeTensorProp(torch.fx.Interpreter):
                     # gives us a compound expression and I'm not sure it
                     # simplifies right now)
                     for i, j in zip(old.shape, new.shape):
-                        torch._check(i == j)
+                        rename_unbacked_to(i, j)
                 if isinstance(new, FakeTensor):
                     return snapshot_fake(new)
                 else:
@@ -56,7 +57,7 @@ class FakeTensorProp(torch.fx.Interpreter):
             elif isinstance(new, scalar_types):
                 if old is not nil:
                     assert isinstance(old, scalar_types)
-                    torch._check(old == new)
+                    rename_unbacked_to(old, new)
                 return new
             else:
                 return None
@@ -68,7 +69,6 @@ class FakeTensorProp(torch.fx.Interpreter):
         meta = tree_map(check_consistent, result, *meta_arg)
         if meta is not None:
             n.meta['val'] = meta
-
         return result
 
     def propagate(self, *args):

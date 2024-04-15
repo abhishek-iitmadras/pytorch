@@ -23,7 +23,11 @@ from torch import Tensor
 from torch._decomp.decompositions_for_rng import PhiloxStateTracker
 from torch._guards import detect_fake_mode
 from torch._prims_common import CUDARngStateHelper
-from torch.fx.experimental.symbolic_shapes import definitely_false, sym_eq
+from torch.fx.experimental.symbolic_shapes import (
+    definitely_false,
+    rename_unbacked_to,
+    sym_eq,
+)
 from torch.nn.utils import stateless
 
 from .. import config
@@ -675,8 +679,6 @@ def aot_dispatch_subclass(
 
 class PropagateUnbackedSymInts(torch.fx.Interpreter):
     def run_node(self, n: torch.fx.Node):
-        import sympy
-
         result = super().run_node(n)
         scalar_types = (torch.SymInt, torch.SymFloat, torch.SymBool, int, float, bool)
 
@@ -689,13 +691,10 @@ class PropagateUnbackedSymInts(torch.fx.Interpreter):
                 # gives us a compound expression and I'm not sure it
                 # simplifies right now)
                 for i, j in zip(old.shape, new.shape):
-                    torch._check(i == j)
+                    rename_unbacked_to(i, j)
             elif isinstance(new, scalar_types):
                 assert isinstance(old, scalar_types)
-                torch._check(old == new)
-
-        if "example_value" in n.meta:
-            pytree.tree_map_(check_consistent, result, n.meta["example_value"])
+                rename_unbacked_to(old, new)
 
         return result
 
