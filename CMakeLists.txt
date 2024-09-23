@@ -1388,3 +1388,16 @@ if(BUILD_BUNDLE_PTXAS AND USE_CUDA)
   install(PROGRAMS "${PROJECT_BINARY_DIR}/ptxas"
           DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
+
+# Add a new option to handle SVE for debug builds
+option(DISABLE_SVE_FOR_DEBUG "Disable SVE for debug builds" ON)
+
+# Check if the build type is Debug
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND DISABLE_SVE_FOR_DEBUG)
+    message(STATUS "Debug build type detected.")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)")
+        message(STATUS "Disabling SVE for Debug build.")
+        string(APPEND CMAKE_CXX_FLAGS_DEBUG " -march=armv8-a")
+        string(APPEND CMAKE_C_FLAGS_DEBUG " -march=armv8-a")
+    endif()
+endif()
