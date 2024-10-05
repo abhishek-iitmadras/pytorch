@@ -1836,7 +1836,14 @@ namespace {
         constexpr int dst_n = mask_n * size / num_dst_elements;        \
         auto vec_mask_new = vec_mask.template cast<dst_t, dst_n>();    \
         vec_mask.template to<mask_t, mask_n>().store(x);               \
-        vec_mask_new.template to<dst_t, dst_n>().store(y);             \
+        /* Implement safe store */                                     \
+        auto vec_result = vec_mask_new.template to<dst_t, dst_n>();    \
+        CACHE_ALIGN dst_t temp[at::vec::Vectorized<dst_t>::size()];    \
+        vec_result.store(temp);                                        \
+        for (int i = 0; i < std::min(mask_n * size,                    \
+                                    dst_n * num_dst_elements); ++i) {  \
+        y[i] = temp[i];                                                \
+        }                                                              \
         for (const auto i : c10::irange(mask_n * size)) {              \
           ASSERT_EQ(y[i], x[i])                                        \
               << "Failure Details:\nTest Seed to reproduce: " << seed; \
